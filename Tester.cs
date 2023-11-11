@@ -13,7 +13,7 @@ public class Tester
     private readonly string _logFileLocation;
     private readonly string[] _hostnames;
     private static readonly TimeSpan pingEvery = TimeSpan.FromSeconds(5);
-    private static readonly TimeSpan speedTestEvery = TimeSpan.FromHours(1);
+    private static readonly TimeSpan speedTestEvery = TimeSpan.FromMinutes(30);
 
     public Tester(string logFileLocation, string[] hostnames)
     {
@@ -56,33 +56,32 @@ public class Tester
         }
     }
 
-private async Task SpeedTestAsync(string logFile)
-{
-    var url = "http://speedtest.tele2.net/1MB.zip"; // URL of a test file
-    var stopwatch = Stopwatch.StartNew();
-    using var client = new HttpClient();
-    using var steam = await client.GetStreamAsync(url);
-
+    private async Task SpeedTestAsync(string logFile)
     {
-        stopwatch.Start();
+        var url = "https://github.com/hallipr/internetstats/raw/main/testdata/100.bin"; // URL of a test file
+        var stopwatch = Stopwatch.StartNew();
+        using var client = new HttpClient();
+        using var stream = await client.GetStreamAsync(url);
 
-        await client.DownloadFileTaskAsync(new Uri(url), "./testfile.zip"); // Download the file
+        var buffer = new byte[1024 * 10];
+        var totalRead = 0;
 
-        stopwatch.Stop();
+        while (true)
+        {
+            var bytesRead = await stream.ReadAsync(buffer);
+            totalRead += bytesRead;
+
+            if (bytesRead == 0)
+            {
+                break;
+            }
+        }
+
+        var speed = totalRead / stopwatch.Elapsed.TotalSeconds / 1024 / 1024; // Calculate speed in MB/s
+
+        Console.WriteLine($"{DateTimeOffset.UtcNow:s} - speed - {speed:f3} MB/s");
+        File.AppendAllLines(logFile, new[] { $"{DateTimeOffset.UtcNow:s} - {speed:f3} MB/s" });
     }
-
-    File.Delete("./testfile.zip"); // Delete the file
-
-    var speed = (1024 / stopwatch.Elapsed.TotalSeconds); // Calculate speed in KB/s
-
-    Console.WriteLine($"Speed: {speed} KB/s");
-
-    // Log the speed
-    using (StreamWriter sw = File.AppendText(logFile))
-    {
-        await sw.WriteLineAsync($"{DateTimeOffset.UtcNow:s} - speed test - {speed} KB/s");
-    }
-}
 
     private async Task PingHostsAsync(string logFile)
     {
