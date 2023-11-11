@@ -1,19 +1,20 @@
 using System.Diagnostics;
 using System.Net.NetworkInformation;
 using System.Text;
-using SpeedTest.Net;
 
 namespace PingTest;
 
 public class Tester
 {
-    private static readonly byte[] _buffer = Encoding.ASCII.GetBytes("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    private static readonly TimeSpan PingEvery = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan SpeedTestEvery = TimeSpan.FromMinutes(30);
+    private static readonly string SpeedTestDataUrl = "https://github.com/hallipr/internetstats/raw/main/testdata/100.bin"; // URL of a test file
+
+    private static readonly byte[] PingData = Encoding.ASCII.GetBytes("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
     private readonly PingOptions _pingOptions = new() { DontFragment = true };
     private readonly Ping _pingSender = new();
     private readonly string _logFileLocation;
     private readonly string[] _hostnames;
-    private static readonly TimeSpan pingEvery = TimeSpan.FromSeconds(5);
-    private static readonly TimeSpan speedTestEvery = TimeSpan.FromMinutes(30);
 
     public Tester(string logFileLocation, string[] hostnames)
     {
@@ -42,13 +43,13 @@ public class Tester
 
             await PingHostsAsync(pingLogFile);
 
-            if (!speedTestStopwatch.IsRunning || speedTestStopwatch.Elapsed > speedTestEvery)
+            if (!speedTestStopwatch.IsRunning || speedTestStopwatch.Elapsed > SpeedTestEvery)
             {
                 await SpeedTestAsync(speedTestLogFile);
                 speedTestStopwatch.Restart();
             }
 
-            var remaining = pingEvery - pingStopwatch.Elapsed;
+            var remaining = PingEvery - pingStopwatch.Elapsed;
             if (remaining > TimeSpan.Zero)
             {
                 await Task.Delay(remaining, cancellationToken);
@@ -58,10 +59,9 @@ public class Tester
 
     private async Task SpeedTestAsync(string logFile)
     {
-        var url = "https://github.com/hallipr/internetstats/raw/main/testdata/100.bin"; // URL of a test file
         var stopwatch = Stopwatch.StartNew();
         using var client = new HttpClient();
-        using var stream = await client.GetStreamAsync(url);
+        using var stream = await client.GetStreamAsync(SpeedTestDataUrl);
 
         var buffer = new byte[1024 * 10];
         var totalRead = 0;
@@ -106,7 +106,7 @@ public class Tester
 
     private async Task<long> Test(string hostname)
     {
-        PingReply reply = await _pingSender.SendPingAsync(hostname, timeout: 1000, _buffer, _pingOptions);
+        PingReply reply = await _pingSender.SendPingAsync(hostname, timeout: 1000, PingData, _pingOptions);
         if (reply.Status != IPStatus.Success)
         {
             throw new Exception("Ping failed");

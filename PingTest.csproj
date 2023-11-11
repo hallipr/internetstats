@@ -7,8 +7,4 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="SpeedTest.NetCore" Version="2.1.0" />
-  </ItemGroup>
-
 </Project>
